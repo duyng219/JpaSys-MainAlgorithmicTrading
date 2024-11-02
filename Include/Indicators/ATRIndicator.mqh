@@ -1,29 +1,29 @@
 //+------------------------------------------------------------------+
-//|                                           Strategy101Manager.mqh |
+//|                                                 ATRIndicator.mqh |
 //|                                                            duyng |
 //|                                      https://github.com/duyng219 |
 //+------------------------------------------------------------------+
 #property copyright "duyng"
 #property link      "https://github.com/duyng219"
 #property version   "1.00"
-class Strategy101Manager
+class ATRIndicator
   {
 private:
 
 public:
-                     Strategy101Manager();
-                    ~Strategy101Manager();
+                     ATRIndicator();
+                    ~ATRIndicator();
   };
 //+------------------------------------------------------------------+
 //|                                                                  |
 //+------------------------------------------------------------------+
-Strategy101Manager::Strategy101Manager()
+ATRIndicator::ATRIndicator()
   {
   }
 //+------------------------------------------------------------------+
 //|                                                                  |
 //+------------------------------------------------------------------+
-Strategy101Manager::~Strategy101Manager()
+ATRIndicator::~ATRIndicator()
   {
   }
 //+------------------------------------------------------------------+
