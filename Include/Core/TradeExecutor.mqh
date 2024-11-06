@@ -39,7 +39,10 @@ class CTradeExecutor
         void                        SetMagicNumber(ulong pMagic) {magicNumber = pMagic;}
         void                        SetDeviation(ulong pDeviation) {deviation = pDeviation;}
         void                        SetFillingType(ENUM_ORDER_TYPE_FILLING pFillingType) {fillingType = pFillingType;}
+        bool                        IsFillingTypeAllowed(int pFillType);
+        string                      GetFillingTypeName(int pFillType);
         bool                        SelectPosition(string pSymbol);
+        
 };
 
 //+------------------------------------------------------------------+
@@ -79,7 +82,10 @@ ulong CTradeExecutor::OpenPosition(string pSymbol,ENUM_ORDER_TYPE pType, double 
     //Trade Information - result.price không được sử dụng cho lệnh thị trường
     Print("Order #",result.order," sent: ",result.retcode,", Volume: ",result.volume," Price: ",result.price,", Bid: ",result.bid,", Ask: ",result.ask);
 
-    if(result.retcode==TRADE_RETCODE_DONE || result.retcode==TRADE_RETCODE_DONE_PARTIAL || result.retcode==TRADE_RETCODE_PLACED || result.retcode==TRADE_RETCODE_NO_CHANGES)
+    if( result.retcode==TRADE_RETCODE_DONE         || 
+        result.retcode==TRADE_RETCODE_DONE_PARTIAL || 
+        result.retcode==TRADE_RETCODE_PLACED       || 
+        result.retcode==TRADE_RETCODE_NO_CHANGES    )
     {
         return result.order;
     }
@@ -94,4 +100,31 @@ ulong CTradeExecutor::Buy(string pSymbol, double pVolume, double pStopLoss=0, do
 ulong CTradeExecutor::Sell(string pSymbol, double pVolume, double pStopLoss=0, double pTakeProfit=0, string pComment=NULL)
 {
     return 0;
+}
+
+//+------------------------------------------------------------------+
+//| NON-CLASS TRADE FUNCTIONS                                        |
+//+------------------------------------------------------------------+
+
+bool CTradeExecutor::IsFillingTypeAllowed(int pFillType)
+{
+    //Lấy giá trị của thuộc tính Filling of Symbol hiện tại
+    int symbolFillingMode = (int)SymbolInfoInteger(_Symbol, SYMBOL_FILLING_MODE);
+    //Trả về "true" nếu chế độ fill_type được phép
+    return ((symbolFillingMode & pFillType) == pFillType);
+}
+
+string CTradeExecutor::GetFillingTypeName(int pFillType)
+{
+    switch(pFillType)
+    {
+        case ORDER_FILLING_FOK:
+            return "ORDER_FILLING_FOK.";
+        case ORDER_FILLING_IOC:
+            return "ORDER_FILLING_IOC.";
+        case ORDER_FILLING_RETURN:
+            return "ORDER_FILLING_RETURN.";
+        default:
+            return "UNKNOWN_FILLING_TYPE.";
+    }
 }
