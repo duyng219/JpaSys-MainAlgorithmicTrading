@@ -57,7 +57,12 @@ void CDate::Init(bool pSunday,bool pMonday, bool pTuesday, bool pWednesday, bool
 bool CDate::DayOfWeekFilter()
 {
     TimeCurrent(currentDateTime);
-    return (daysOfWeek[currentDateTime.day_of_week]);
+    // return (daysOfWeek[currentDateTime.day_of_week]);
+    if(daysOfWeek[currentDateTime.day_of_week]) 
+        return true;
+    else
+        Print("Error - Check lại DayOfWeekFilter", GetLastError());
+        return false;
 }
 
 

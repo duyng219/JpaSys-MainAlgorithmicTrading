@@ -89,20 +89,19 @@ int OnInit()
     glTimeBarOpen = D'1971.01.01 00.00';
 
     //KIỂM TRA INPUT
-    //ORDER_FILLING_FOK (Fill or Kill): Lệnh phải được khớp toàn bộ tại giá mong muốn. Nếu không thể khớp đủ khối lượng ngay lập tức, lệnh sẽ bị hủy.
-    //ORDER_FILLING_IOC (Immediate or Cancel): Lệnh sẽ được khớp tối đa khối lượng có thể tại giá mong muốn ngay lập tức, và phần còn lại, nếu không khớp được, sẽ bị hủy.
-    //ORDER_FILLING_RETURN (Return): Lệnh sẽ được khớp một phần và phần còn lại sẽ tiếp tục chờ để khớp ở các giá mong muốn sau đó.
-
     //--Kiểm tra phương thức khớp lệnh
     if(Trade.IsFillingTypeAllowed(SYMBOL_FILLING_FOK)) { 
+        //ORDER_FILLING_FOK (Fill or Kill): Lệnh phải được khớp toàn bộ tại giá mong muốn. Nếu không thể khớp đủ khối lượng ngay lập tức, lệnh sẽ bị hủy.
         glFillingPolicy = ORDER_FILLING_FOK; 
         Print("PHƯƠNG THỨC KHỚP LỆNH: ",Trade.GetFillingTypeName(glFillingPolicy)); 
     }
     else if(Trade.IsFillingTypeAllowed(SYMBOL_FILLING_IOC)) { 
+        //ORDER_FILLING_IOC (Immediate or Cancel): Lệnh sẽ được khớp tối đa khối lượng có thể tại giá mong muốn ngay lập tức, và phần còn lại, nếu không khớp được, sẽ bị hủy.
         glFillingPolicy = ORDER_FILLING_IOC; 
         Print("PHƯƠNG THỨC KHỚP LỆNH: ",Trade.GetFillingTypeName(glFillingPolicy)); 
     }
     else { 
+        //ORDER_FILLING_RETURN (Return): Lệnh sẽ được khớp một phần và phần còn lại sẽ tiếp tục chờ để khớp ở các giá mong muốn sau đó.
         glFillingPolicy = ORDER_FILLING_RETURN; 
         Print("PHƯƠNG THỨC KHỚP LỆNH: ",Trade.GetFillingTypeName(glFillingPolicy)); 
     }
@@ -127,15 +126,29 @@ void OnDeinit(const int reason)
 
 void OnTick()
 {
-    /*STAGE1: KIỂM TRA ĐẦU VÀO TỔNG THỂ*/
+    //--------------------------------------//
+    //  STAGE 1: KIỂM TRA ĐẦU VÀO TỔNG THỂ 
+    //--------------------------------------//
+
     //--Check for new bar
     bool newBar = false;
-    if(glTimeBarOpen != iTime(Symbol(),PERIOD_CURRENT,0)) { newBar = true; glTimeBarOpen = iTime(Symbol(),PERIOD_CURRENT,0); }
+    if(glTimeBarOpen != iTime(Symbol(),PERIOD_CURRENT,0)) 
+    { 
+        newBar = true; 
+        glTimeBarOpen = iTime(Symbol(),PERIOD_CURRENT,0); 
+    }
     if(newBar == true)
     {
-        //--Khởi tạo Giá & Indicators
+        //--Khởi tạo Price & Indicators
+        //--Price
+        //--Normalization of close price to tick size(Chuẩn hóa giá đóng cửa theo kích thước tick)
+        //--Moving Average
+        //--ATR
 
-        /*STAGE2: ĐÓNG VỊ THẾ (EXIT SIGNALS & TRADE EXIT)*/
+        //--------------------------------------------//
+        // STAGE 2: ĐÓNG VỊ THẾ (SIGNALS & TRADE EXIT)
+        //--------------------------------------------//
+
         //Tín hiệu thoát & Đóng giao dịch thực hiện
         string exitSignal = "";
         if(exitSignal == "EXIT_BUY" || exitSignal == "EXIT_SELL")
@@ -144,29 +157,45 @@ void OnTick()
             }
         Sleep(1000);
 
-        /*STAGE3: ĐIỀU KIỆN TÍN HIỆU KÍCH HOẠT VỊ THẾ (ENTRY SIGNALS)*/
+        //--------------------------------------------//
+        // STAGE 3: TÍN HIỆU KÍCH HOẠT (ENTRY SIGNALS)
+        //--------------------------------------------//
+
         //--Tín hiệu kích hoạt chính
         string entrySignal = "";
         
-        //--Bộ lọc ngày trong tuần
+        //--Lọc các ngày giao dịch trong tuần
         bool dateFilter = Date.DayOfWeekFilter();
 
+        //--Kiểm tra Trend hiện tại BUY(UPTREND) & SELL(DOWNTREND)
+        string isTrend = "";
+
         //--Kiểm tra điều kiện kích hoạt vị thế & mở vị thế
-        if((dateFilter == true) && (entrySignal == "BUY" || entrySignal == "SELL"))
-        {
-            /*STAGE4: MỞ VỊ THẾ & ĐIỀU CHỈNH STOPLOSS, RISK (TRADE PLACEMENT)*/
+        //--Phần kiểm tra isTrend sử dụng class để tính toán và trả về entrySignal và isTrend
+        // if((dateFilter == true)  && 
+        //     ((entrySignal=="BUY" && isTrend=="UP_TREND") || 
+        //     (entrySignal=="SELL" && isTrend=="DOWN_TREND")))
+        // {
+        if((!Trade.CheckPlacedPosition(MagicNumber) || Trade.CheckPositionProfitOrStopReached(MagicNumber)) && dateFilter && (entrySignal == "BUY" || entrySignal == "SELL"))
+        {   
+            //----------------------------------------//
+            //   STAGE 4: MỞ VỊ THẾ (TRADE PLACEMENT)
+            //----------------------------------------//
+
             //SL & TP Calculation
             if(entrySignal == "BUY")
             {
-
+                //Calculate volume
             }
             else if(entrySignal == "SEll")
             {
-
+                //Calculate volume
             }
+            //SL & TP Trade Modification
         }
-
-        /*STAGE5: QUẢN LÝ VỊ THẾ (POSITION MANAGEMENT)*/
+        //----------------------------------------------//
+        // STAGE 5: QUẢN LÝ VỊ THẾ (POSITION MANAGEMENT)
+        //----------------------------------------------//
         
     }
 }

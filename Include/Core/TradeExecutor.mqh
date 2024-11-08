@@ -31,7 +31,6 @@ class CTradeExecutor
         ulong                       Sell(string pSymbol, double pVolume, double pStopLoss=0, double pTakeProfit=0, string pComment=NULL);
 
         void                        CloseTrades(string pSymbol, string pExitSignal);
-        void                        Delete(ulong pTicket);
 
         //Các phương thức hỗ trợ kiểm tra đầu vào
         void                        SetMarginMode(void) {marginMode = (ENUM_ACCOUNT_MARGIN_MODE)AccountInfoInteger(ACCOUNT_MARGIN_MODE);}
@@ -41,7 +40,9 @@ class CTradeExecutor
         void                        SetFillingType(ENUM_ORDER_TYPE_FILLING pFillingType) {fillingType = pFillingType;}
         bool                        IsFillingTypeAllowed(int pFillType);
         string                      GetFillingTypeName(int pFillType);
-        bool                        SelectPosition(string pSymbol);
+
+        bool                        CheckPlacedPosition(ulong pMagic);
+        bool                        CheckPositionProfitOrStopReached(ulong pMagic);
         
 };
 
@@ -94,12 +95,66 @@ ulong CTradeExecutor::OpenPosition(string pSymbol,ENUM_ORDER_TYPE pType, double 
 
 ulong CTradeExecutor::Buy(string pSymbol, double pVolume, double pStopLoss=0, double pTakeProfit=0, string pComment=NULL)
 {
-    return 0;
+    pComment = "BUY" + " | " + pSymbol + " | " + string(magicNumber);
+    double price = SymbolInfoDouble(pSymbol,SYMBOL_ASK);
+
+    ulong ticket = OpenPosition(pSymbol,ORDER_TYPE_BUY,pVolume,price,pStopLoss,pTakeProfit,pComment);
+    return(ticket);
 }
 
 ulong CTradeExecutor::Sell(string pSymbol, double pVolume, double pStopLoss=0, double pTakeProfit=0, string pComment=NULL)
 {
-    return 0;
+    pComment = "SELL" + " | " + pSymbol + " | " + string(magicNumber);
+    double price = SymbolInfoDouble(pSymbol,SYMBOL_BID);
+		
+	ulong ticket = OpenPosition(pSymbol,ORDER_TYPE_SELL,pVolume,price,pStopLoss,pTakeProfit,pComment);
+	return(ticket);
+}
+
+bool CTradeExecutor::CheckPlacedPosition(ulong pMagic)
+{
+    bool placedPosition = false;
+    for (int i = PositionsTotal() - 1; i >= 0; i--)
+    {
+        ulong positionTicket = PositionGetTicket(i);
+        PositionSelectByTicket(positionTicket);
+
+        ulong posMagic = PositionGetInteger(POSITION_MAGIC);
+
+        if(posMagic == pMagic)
+        {
+            placedPosition = true;
+            break;
+        }
+    }
+    return placedPosition;   
+}
+
+bool CTradeExecutor::CheckPositionProfitOrStopReached(ulong pMagic)
+{
+    for (int i = PositionsTotal() - 1; i >= 0; i--)
+    {
+        ulong positionTicket = PositionGetTicket(i);
+        PositionSelectByTicket(positionTicket);
+
+        ulong posMagic = PositionGetInteger(POSITION_MAGIC);
+        double posStopLoss = PositionGetDouble(POSITION_SL);
+        double posPriceOpen = PositionGetDouble(POSITION_PRICE_OPEN);
+        double posProfit = PositionGetDouble(POSITION_PROFIT);
+
+        // Kiểm tra nếu vị thế có magic number tương ứng
+        if(posMagic == pMagic)
+        {
+            // Kiểm tra nếu StopLoss đạt đến Entry hoặc vị thế đang có lợi nhuận
+            //if(posStopLoss >= posPriceOpen || posProfit > 0)
+            // Kiểm tra nếu StopLoss đạt đến Entry  (Trailing Stop)
+            if(posStopLoss >= posPriceOpen)
+            {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 //+------------------------------------------------------------------+
