@@ -26,6 +26,9 @@
 
 CTradeExecutor  Trade;
 CDate           Date;
+CBar            Bar;
+CiMA            MA;
+CRM             RM;
 
 //+------------------------------------------------------------------+
 //| EA Enumerations                                                  |
@@ -85,35 +88,36 @@ ENUM_ORDER_TYPE_FILLING         glFillingPolicy;
 //+------------------------------------------------------------------+
 int OnInit()
 {
+    Print("STRATEGY HAS BEEN INITIALIZED.");
+
     //SET VARIABLES
+    Trade.SetDeviation(Deviation);
+    Trade.SetMagicNumber(MagicNumber);
     glTimeBarOpen = D'1971.01.01 00.00';
 
     //KIỂM TRA INPUT
     //--Kiểm tra phương thức khớp lệnh
     if(Trade.IsFillingTypeAllowed(SYMBOL_FILLING_FOK)) { 
         //ORDER_FILLING_FOK (Fill or Kill): Lệnh phải được khớp toàn bộ tại giá mong muốn. Nếu không thể khớp đủ khối lượng ngay lập tức, lệnh sẽ bị hủy.
-        glFillingPolicy = ORDER_FILLING_FOK; 
-        Print("PHƯƠNG THỨC KHỚP LỆNH: ",Trade.GetFillingTypeName(glFillingPolicy)); 
+        glFillingPolicy = ORDER_FILLING_FOK; Print("PHƯƠNG THỨC KHỚP LỆNH: ",Trade.GetFillingTypeName(glFillingPolicy)); 
     }
     else if(Trade.IsFillingTypeAllowed(SYMBOL_FILLING_IOC)) { 
         //ORDER_FILLING_IOC (Immediate or Cancel): Lệnh sẽ được khớp tối đa khối lượng có thể tại giá mong muốn ngay lập tức, và phần còn lại, nếu không khớp được, sẽ bị hủy.
-        glFillingPolicy = ORDER_FILLING_IOC; 
-        Print("PHƯƠNG THỨC KHỚP LỆNH: ",Trade.GetFillingTypeName(glFillingPolicy)); 
-    }
-    else { 
+        glFillingPolicy = ORDER_FILLING_IOC; Print("PHƯƠNG THỨC KHỚP LỆNH: ",Trade.GetFillingTypeName(glFillingPolicy)); 
+    } else { 
         //ORDER_FILLING_RETURN (Return): Lệnh sẽ được khớp một phần và phần còn lại sẽ tiếp tục chờ để khớp ở các giá mong muốn sau đó.
-        glFillingPolicy = ORDER_FILLING_RETURN; 
-        Print("PHƯƠNG THỨC KHỚP LỆNH: ",Trade.GetFillingTypeName(glFillingPolicy)); 
+        glFillingPolicy = ORDER_FILLING_RETURN; Print("PHƯƠNG THỨC KHỚP LỆNH: ",Trade.GetFillingTypeName(glFillingPolicy)); 
     }
 
     //--Kiểm tra Account Hedging or Netting
     if (Trade.IsHedging()) { Print("ACCOUNT ĐANG Ở CHẾ ĐỘ HEDGING."); }
     else { Print("ACCOUNT ĐANG Ở CHẾ ĐỘ NETTING.");  return(INIT_FAILED); }
     
-
     //INITIALIZE METHODS
+    int MAHandle = MA.Init(_Symbol,PERIOD_CURRENT,MAPeriod,MAShift,MAMethod,MAPrice);
+    if(MAHandle == -1) { return(INIT_FAILED);}
 
-    //DateTime
+    //--DateTime
     Date.Init(Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday);
 
     return (INIT_SUCCEEDED);
@@ -121,7 +125,7 @@ int OnInit()
 
 void OnDeinit(const int reason)
 {
-    Print("Expert removed");
+    Print("STRATEGY HAS BEEN REMOVED.");
 }
 
 void OnTick()
@@ -139,10 +143,19 @@ void OnTick()
     }
     if(newBar == true)
     {
-        //--Khởi tạo Price & Indicators
         //--Price
-        //--Normalization of close price to tick size(Chuẩn hóa giá đóng cửa theo kích thước tick)
+        Bar.Refresh(_Symbol,PERIOD_CURRENT,3);
+        double close1 = Bar.Close(1); // Lấy nến đóng cửa đầu tiên - 0 là nến đang giao dịch
+        double close2 = Bar.Close(2);
+        //--Normalization of close price to tick size
+        double tickSize = SymbolInfoDouble(_Symbol,SYMBOL_TRADE_TICK_SIZE);
+        close1 = round(close1/tickSize) * tickSize;
+        close2 = round(close2/tickSize) * tickSize;
+
         //--Moving Average
+        MA.RefreshMain();
+        double ma1 = MA.main[1];
+        double ma2 = MA.main[2];
         //--ATR
 
         //--------------------------------------------//
@@ -160,18 +173,20 @@ void OnTick()
         //--------------------------------------------//
         // STAGE 3: TÍN HIỆU KÍCH HOẠT (ENTRY SIGNALS)
         //--------------------------------------------//
-
         //--Tín hiệu kích hoạt chính
-        string entrySignal = "";
+        string entrySignal = MA_EntrySignal(close1,close2,ma1,ma2);
+        Comment("XIN CHAO EA! "," | Magic Numer: ",MagicNumber);
+        
+        
         
         //--Lọc các ngày giao dịch trong tuần
         bool dateFilter = Date.DayOfWeekFilter();
 
-        //--Kiểm tra Trend hiện tại BUY(UPTREND) & SELL(DOWNTREND)
-        string isTrend = "";
 
         //--Kiểm tra điều kiện kích hoạt vị thế & mở vị thế
         //--Phần kiểm tra isTrend sử dụng class để tính toán và trả về entrySignal và isTrend
+        //--Kiểm tra Trend hiện tại BUY(UPTREND) & SELL(DOWNTREND)
+        // string isTrend = "";
         // if((dateFilter == true)  && 
         //     ((entrySignal=="BUY" && isTrend=="UP_TREND") || 
         //     (entrySignal=="SELL" && isTrend=="DOWN_TREND")))
@@ -181,15 +196,20 @@ void OnTick()
             //----------------------------------------//
             //   STAGE 4: MỞ VỊ THẾ (TRADE PLACEMENT)
             //----------------------------------------//
+            ulong ticket = 0;
 
             //SL & TP Calculation
             if(entrySignal == "BUY")
             {
                 //Calculate volume
+                // double volume = RM.MoneyManagement(_Symbol,MoneyManagement,MinLotPerEquityStep,RiskPercent,MathAbs(stopLoss-close1),FixedVolume,ORDER_TYPE_BUY);
+                Print("Hàm EnTrySignal sent BUY");
             }
-            else if(entrySignal == "SEll")
+            else if(entrySignal == "SELL")
             {
                 //Calculate volume
+                // double volume = RM.MoneyManagement(_Symbol,MoneyManagement,MinLotPerEquityStep,RiskPercent,MathAbs(stopLoss-close1),FixedVolume,ORDER_TYPE_SELL);
+                Print("Hàm EnTrySignal sent SELL ");
             }
             //SL & TP Trade Modification
         }

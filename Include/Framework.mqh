@@ -11,5 +11,6 @@
 #include "Core/RiskManager.mqh";
 // #include "Core/TradeExecutor.mqh";
 #include "Core/TimeManager.mqh";
+#include "Core/BarManager.mqh"
 
 #include "Indicator/Indicators.mqh";
