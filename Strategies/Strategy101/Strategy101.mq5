@@ -29,6 +29,7 @@ CDate           Date;
 CBar            Bar;
 CiMA            MA;
 CRM             RM;
+CPM             PM;
 
 //+------------------------------------------------------------------+
 //| EA Enumerations                                                  |
@@ -55,14 +56,21 @@ sinput group                    "RISK MANAGEMENT"
 sinput string                   strMM;              // --- Money Management ---
 input ENUM_MONEY_MANAGEMENT     MoneyManagement     = MM_EQUITY_RISK_PERCENT;
 input double                    RiskPercent         = 1;
-input double                    MinLotPerEquityStep = 500;
-input double                    FixedVolume         = 0.05;
+input double                    MinLotPerEquityStep = 0;
+input double                    FixedVolume         = 0.01;
 
 sinput string                   strMaxLoss;         // --- Max Loss(Rủi ro giới hạn) ---
 input double                    MaxLossPercent      = 0;
 input ENUM_TIMEFRAMES           ProfitPeriod        = PERIOD_D1;
 input uchar                     NumberOfPeriods     = 0;
 input bool                      IncludeFloating     = false;
+
+sinput group                    "POSITION MANAGEMENT"
+input int                       SLFixedPoints       = 200;
+// input int                       SLFixedPointsMA     = 0;
+// input int                       TPFixedPoints       = 0;
+// input int                       TSLFixedPoints      = 0;
+// input int                       BEFixedPoints       = 0;
 
 sinput group                    "DAY OF WEEK FILTER"
 input bool                      Sunday              = false;
@@ -73,13 +81,6 @@ input bool                      Thursday             = true;
 input bool                      Friday              = true;
 input bool                      Saturday            = false;
 
-// sinput group                    "POSITION MANAGEMENT"
-// input int                       SLFixedPoints       = 0;
-// input int                       SLFixedPointsMA     = 200;
-// input int                       TPFixedPoints       = 0;
-// input int                       TSLFixedPoints      = 0;
-// input int                       BEFixedPoints       = 0;
-
 datetime                        glTimeBarOpen;
 ENUM_ORDER_TYPE_FILLING         glFillingPolicy;
 
@@ -89,11 +90,6 @@ ENUM_ORDER_TYPE_FILLING         glFillingPolicy;
 int OnInit()
 {
     Print("STRATEGY HAS BEEN INITIALIZED.");
-
-    //SET VARIABLES
-    Trade.SetDeviation(Deviation);
-    Trade.SetMagicNumber(MagicNumber);
-    glTimeBarOpen = D'1971.01.01 00.00';
 
     //KIỂM TRA INPUT
     //--Kiểm tra phương thức khớp lệnh
@@ -109,6 +105,12 @@ int OnInit()
         glFillingPolicy = ORDER_FILLING_RETURN; Print("PHƯƠNG THỨC KHỚP LỆNH: ",Trade.GetFillingTypeName(glFillingPolicy)); 
     }
 
+    //SET VARIABLES
+    Trade.SetDeviation(Deviation);
+    Trade.SetMagicNumber(MagicNumber);
+    Trade.SetFillingType(glFillingPolicy);
+    glTimeBarOpen = D'1971.01.01 00.00';
+    
     //--Kiểm tra Account Hedging or Netting
     if (Trade.IsHedging()) { Print("ACCOUNT ĐANG Ở CHẾ ĐỘ HEDGING."); }
     else { Print("ACCOUNT ĐANG Ở CHẾ ĐỘ NETTING.");  return(INIT_FAILED); }
@@ -159,25 +161,11 @@ void OnTick()
         //--ATR
 
         //--------------------------------------------//
-        // STAGE 2: ĐÓNG VỊ THẾ (SIGNALS & TRADE EXIT)
-        //--------------------------------------------//
-
-        //Tín hiệu thoát & Đóng giao dịch thực hiện
-        string exitSignal = "";
-        if(exitSignal == "EXIT_BUY" || exitSignal == "EXIT_SELL")
-            {
-                
-            }
-        Sleep(1000);
-
-        //--------------------------------------------//
         // STAGE 3: TÍN HIỆU KÍCH HOẠT (ENTRY SIGNALS)
         //--------------------------------------------//
         //--Tín hiệu kích hoạt chính
         string entrySignal = MA_EntrySignal(close1,close2,ma1,ma2);
         Comment("XIN CHAO EA! "," | Magic Numer: ",MagicNumber);
-        
-        
         
         //--Lọc các ngày giao dịch trong tuần
         bool dateFilter = Date.DayOfWeekFilter();
@@ -199,23 +187,39 @@ void OnTick()
             ulong ticket = 0;
 
             //SL & TP Calculation
+            double stopLoss = PM.CalculatorStopLoss(_Symbol,entrySignal,SLFixedPoints);
+
             if(entrySignal == "BUY")
             {
                 //Calculate volume
-                // double volume = RM.MoneyManagement(_Symbol,MoneyManagement,MinLotPerEquityStep,RiskPercent,MathAbs(stopLoss-close1),FixedVolume,ORDER_TYPE_BUY);
-                Print("Hàm EnTrySignal sent BUY");
+                double volume = RM.MoneyManagement(_Symbol,MoneyManagement,MinLotPerEquityStep,RiskPercent,MathAbs(stopLoss-close1),FixedVolume,ORDER_TYPE_BUY);
+                
+                if(volume > 0) ticket = Trade.Buy(_Symbol,volume);
             }
             else if(entrySignal == "SELL")
             {
                 //Calculate volume
-                // double volume = RM.MoneyManagement(_Symbol,MoneyManagement,MinLotPerEquityStep,RiskPercent,MathAbs(stopLoss-close1),FixedVolume,ORDER_TYPE_SELL);
-                Print("Hàm EnTrySignal sent SELL ");
+                double volume = RM.MoneyManagement(_Symbol,MoneyManagement,MinLotPerEquityStep,RiskPercent,MathAbs(stopLoss-close1),FixedVolume,ORDER_TYPE_SELL);
+                
+                if(volume > 0) ticket = Trade.Sell(_Symbol,volume);
             }
             //SL & TP Trade Modification
+            Trade.ModifyPosition(_Symbol,ticket,stopLoss);
         }
         //----------------------------------------------//
         // STAGE 5: QUẢN LÝ VỊ THẾ (POSITION MANAGEMENT)
         //----------------------------------------------//
+
+        //--------------------------------------------//
+        // STAGE 2: ĐÓNG VỊ THẾ (SIGNALS & TRADE EXIT)
+        //--------------------------------------------//
+        //Tín hiệu thoát & Đóng giao dịch thực hiện
+        string exitSignal = MA_ExitSignal(close1,close2,ma1,ma2);
+        if(exitSignal == "EXIT_BUY" || exitSignal == "EXIT_SELL")
+            {
+                Trade.CloseTrades(_Symbol,exitSignal);
+            }
+        Sleep(1000);
         
     }
 }

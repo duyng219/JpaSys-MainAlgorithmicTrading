@@ -30,6 +30,8 @@ class CTradeExecutor
         ulong                       Buy(string pSymbol, double pVolume, double pStopLoss=0, double pTakeProfit=0, string pComment=NULL);
         ulong                       Sell(string pSymbol, double pVolume, double pStopLoss=0, double pTakeProfit=0, string pComment=NULL);
 
+        void                        ModifyPosition(string pSymbol, ulong pTicket, double pStopLoss=0, double pTakeProfit=0);
+
         void                        CloseTrades(string pSymbol, string pExitSignal);
 
         //Các phương thức hỗ trợ kiểm tra đầu vào
@@ -81,7 +83,7 @@ ulong CTradeExecutor::OpenPosition(string pSymbol,ENUM_ORDER_TYPE pType, double 
         Print("OrderSend lỗi đặt lệnh giao dịch: ", GetLastError()); //Nếu yêu cầu không được gửi, in mã lỗi
 
     //Trade Information - result.price không được sử dụng cho lệnh thị trường
-    Print("Order #",result.order," sent: ",result.retcode,", Volume: ",result.volume," Price: ",result.price,", Bid: ",result.bid,", Ask: ",result.ask);
+    Print("Order(Đặt hàng) #",result.order," sent(đã gửi): ",result.retcode,", Volume: ",result.volume," Price: ",result.price,", Bid: ",result.bid,", Ask: ",result.ask);
 
     if( result.retcode==TRADE_RETCODE_DONE         || 
         result.retcode==TRADE_RETCODE_DONE_PARTIAL || 
@@ -95,7 +97,7 @@ ulong CTradeExecutor::OpenPosition(string pSymbol,ENUM_ORDER_TYPE pType, double 
 
 ulong CTradeExecutor::Buy(string pSymbol, double pVolume, double pStopLoss=0, double pTakeProfit=0, string pComment=NULL)
 {
-    pComment = "BUY" + " | " + pSymbol + " | " + string(magicNumber);
+    pComment = "BUY(MUA)" + " | " + pSymbol + " | " + string(magicNumber);
     double price = SymbolInfoDouble(pSymbol,SYMBOL_ASK);
 
     ulong ticket = OpenPosition(pSymbol,ORDER_TYPE_BUY,pVolume,price,pStopLoss,pTakeProfit,pComment);
@@ -104,11 +106,99 @@ ulong CTradeExecutor::Buy(string pSymbol, double pVolume, double pStopLoss=0, do
 
 ulong CTradeExecutor::Sell(string pSymbol, double pVolume, double pStopLoss=0, double pTakeProfit=0, string pComment=NULL)
 {
-    pComment = "SELL" + " | " + pSymbol + " | " + string(magicNumber);
+    pComment = "SELL(BÁN)" + " | " + pSymbol + " | " + string(magicNumber);
     double price = SymbolInfoDouble(pSymbol,SYMBOL_BID);
 		
 	ulong ticket = OpenPosition(pSymbol,ORDER_TYPE_SELL,pVolume,price,pStopLoss,pTakeProfit,pComment);
 	return(ticket);
+}
+
+void CTradeExecutor::ModifyPosition(string pSymbol, ulong pTicket, double pStopLoss=0, double pTakeProfit=0)
+{
+    if(!CheckPlacedPosition(magicNumber)) return;
+
+    ZeroMemory(request);
+    ZeroMemory(result);
+
+    double tickSize = SymbolInfoDouble(pSymbol,SYMBOL_TRADE_TICK_SIZE);
+    int digits      = (int)SymbolInfoInteger(pSymbol,SYMBOL_DIGITS);
+
+    if(pStopLoss>0)   pStopLoss   = round(pStopLoss/tickSize) * tickSize;
+    if(pTakeProfit>0) pTakeProfit = round(pTakeProfit/tickSize) * tickSize;
+
+    request.action      = TRADE_ACTION_SLTP;
+    request.position    = pTicket;
+	request.sl          = pStopLoss;
+	request.tp          = pTakeProfit;
+	request.symbol      = pSymbol;
+	request.comment     = "MOD(SỬA ĐỔI SLTP)." + " | " + pSymbol + " | " + string(magicNumber) + ", SL: " + DoubleToString(request.sl,digits) + ", TP: "+ DoubleToString(request.tp,digits);
+
+    if(request.sl > 0 || request.tp > 0) 
+	{
+		Sleep(1000);
+		bool sent = OrderSend(request,result);
+		Print(result.comment);
+		
+		if(!sent) 
+		{
+		   Print("OrderSend Modification error: ", GetLastError());
+		   Sleep(3000);
+   		
+            sent = OrderSend(request,result);
+            Print(result.comment);
+            if(!sent) Print("OrderSend 2nd Try Modification error: ", GetLastError());
+		}
+      
+        if(result.retcode == TRADE_RETCODE_DONE || result.retcode == TRADE_RETCODE_DONE_PARTIAL || result.retcode == TRADE_RETCODE_PLACED || result.retcode == TRADE_RETCODE_NO_CHANGES)
+        {
+            Print(pSymbol, " #",pTicket, " modified(đã sửa đổi SL)");
+        }				
+	}
+}
+
+void CTradeExecutor::CloseTrades(string pSymbol, string pExitSignal)
+{
+    if(!CheckPlacedPosition(magicNumber)) return;
+
+    ZeroMemory(request);
+    ZeroMemory(result);
+
+    ulong posMagic      = PositionGetInteger(POSITION_MAGIC);
+    ulong posType       = PositionGetInteger(POSITION_TYPE);
+    ulong posTicket     = PositionGetInteger(POSITION_TICKET);
+    string posSymbol    = PositionGetString(POSITION_SYMBOL);
+
+    if(posSymbol == pSymbol && posMagic == magicNumber && posType == POSITION_TYPE_BUY && (pExitSignal == "EXIT_BUY" || pExitSignal == "EXIT"))
+    {
+        request.action          = TRADE_ACTION_DEAL;
+        request.type            = ORDER_TYPE_SELL;
+        request.symbol          = pSymbol;
+        request.volume          = PositionGetDouble(POSITION_VOLUME);
+        request.price           = SymbolInfoDouble(pSymbol, SYMBOL_BID);
+        request.deviation       = deviation;
+        request.type_filling    = fillingType;
+        request.position        = posTicket;
+
+    }
+    else if(posSymbol == pSymbol && posMagic == magicNumber && posType == POSITION_TYPE_SELL && (pExitSignal == "EXIT_SELL" || pExitSignal == "EXIT"))
+    {
+        request.action          = TRADE_ACTION_DEAL;
+        request.type            = ORDER_TYPE_BUY;
+        request.symbol          = pSymbol;
+        request.volume          = PositionGetDouble(POSITION_VOLUME);
+        request.price           = SymbolInfoDouble(pSymbol, SYMBOL_ASK);
+        request.deviation       = deviation;
+        request.type_filling    = fillingType;
+        request.position        = posTicket;
+    }
+    if(request.action == TRADE_ACTION_DEAL)   //Added to prevent sending the order when there is no exit signal
+        if(!OrderSend(request,result))
+            Print("OrderSend trade close error: ", GetLastError());     //if request was not send, print error code
+	   		
+   if(result.retcode == TRADE_RETCODE_DONE || result.retcode == TRADE_RETCODE_DONE_PARTIAL || result.retcode == TRADE_RETCODE_PLACED || result.retcode == TRADE_RETCODE_NO_CHANGES) 
+	{
+      Print(pSymbol, " #",posTicket, " closed(đã đóng)");
+   }
 }
 
 bool CTradeExecutor::CheckPlacedPosition(ulong pMagic)

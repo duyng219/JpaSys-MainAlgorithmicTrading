@@ -61,7 +61,7 @@ bool CDate::DayOfWeekFilter()
     if(daysOfWeek[currentDateTime.day_of_week]) 
         return true;
     else
-        Print("Error - Check lại DayOfWeekFilter", GetLastError());
+        Print(__FUNCTION__ + "(): Error - Check lại DayOfWeekFilter()", GetLastError());
         return false;
 }
 

@@ -86,7 +86,7 @@ string MA_EntrySignal(double pPrice1, double pPrice2, double pMA1, double pMA2)
                                             "Close 1: ", DoubleToString(pPrice1,_Digits)," | ",
                                             "Close 2: ", DoubleToString(pPrice2,_Digits));
 
-        Print(str, " SIGNAL DETECED", " | ", "Indicator Valuess: ", indicatorValues);
+        Print(str, " SIGNAL DETECED(TÍN HIỆU ĐÃ ĐƯỢC PHÁT HIỆN)", " | ", "Indicator Valuess: ", indicatorValues);
     }
     return str;
 }
@@ -107,7 +107,7 @@ string MA_ExitSignal(double pPrice1, double pPrice2, double pMA1, double pMA2)
                                             "Close 1: ", DoubleToString(pPrice1,_Digits)," | ",
                                             "Close 2: ", DoubleToString(pPrice2,_Digits));
 
-        Print(str, " SIGNAL DETECED", " | ", "Indicator Valuess: ", indicatorValues);
+        Print(str, " SIGNAL DETECED(TÍN HIỆU ĐÃ ĐƯỢC PHÁT HIỆN)", " | ", "Indicator Valuess: ", indicatorValues);
     }
     return str;
 }
