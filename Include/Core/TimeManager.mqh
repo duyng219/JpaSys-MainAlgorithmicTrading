@@ -41,6 +41,8 @@ class CDate : public CDateTime
 
         //Day of Week Filter Method
         bool                DayOfWeekFilter();
+        bool                IsTradingTime();
+        bool                IsTradingDay(string &pReport);
 };
 
 void CDate::Init(bool pSunday,bool pMonday, bool pTuesday, bool pWednesday, bool pThursday, bool pFriday, bool pSaturday)
@@ -64,5 +66,63 @@ bool CDate::DayOfWeekFilter()
         Print(__FUNCTION__ + "(): Error - Check lại DayOfWeekFilter()", GetLastError());
         return false;
 }
+
+bool CDate::IsTradingDay(string &pReport)
+{
+    TimeCurrent(currentDateTime);
+    int dayOfWeek = DayOfWeek();
+    int hour = Hour();
+    
+    // Nếu là thứ 7 hoặc CN thì return false để dừng EA
+    if(dayOfWeek == 0 || dayOfWeek == 6)
+    {
+        StringAdd(pReport,"Today is a non-trading day (Saturday or Sunday). EA will stop processing. " + "\n");
+        // Print("Today is a non-trading day (Saturday or Sunday)");
+        return false;
+    }
+    // Thứ Hai: chỉ bắt đầu giao dịch từ 7h
+    // if (dayOfWeek == 1 && hour < 7)
+    // {
+    //     Print("Chưa đến giờ giao dịch sáng Thứ Hai, EA sẽ ngủ 1 giờ.");
+    //     Sleep(3600);  // Ngủ 1 giờ
+    //     return false;
+    // }
+    
+    return true; // Cho phép EA hoạt động vào các ngày khác
+}
+
+bool CDate::IsTradingTime()
+{
+    TimeCurrent(currentDateTime);
+    int dayOfWeek = DayOfWeek();
+    int hour = Hour();
+
+    // Kiểm tra nếu là Thứ Bảy hoặc Chủ Nhật
+    if (dayOfWeek == 0 || dayOfWeek == 6)
+    {
+        Print("Ngoài giờ giao dịch, EA sẽ ngủ đến thứ Hai.");
+        Sleep(3600 * 24);  // Ngủ 1 ngày
+        return false;
+    }
+
+    // Thứ Hai: chỉ bắt đầu giao dịch từ 7h
+    if (dayOfWeek == 1 && hour < 7)
+    {
+        Print("Chưa đến giờ giao dịch sáng Thứ Hai, EA sẽ ngủ 1 giờ.");
+        Sleep(3600);  // Ngủ 1 giờ
+        return false;
+    }
+
+    // Thứ Sáu: chỉ giao dịch đến 17h
+    if (dayOfWeek == 5 && hour >= 17)
+    {
+        Print("Hết giờ giao dịch chiều Thứ Sáu, EA sẽ ngủ đến thứ Hai.");
+        Sleep(3600 * 24);  // Ngủ 1 ngày
+        return false;
+    }
+
+    return true; // Trong giờ giao dịch
+}
+
 
 

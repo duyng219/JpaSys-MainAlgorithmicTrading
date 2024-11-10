@@ -112,6 +112,14 @@ string MA_ExitSignal(double pPrice1, double pPrice2, double pMA1, double pMA2)
     return str;
 }
 
+        //--Phần kiểm tra isTrend sử dụng class để tính toán và trả về entrySignal và isTrend
+        //--Kiểm tra Trend hiện tại BUY(UPTREND) & SELL(DOWNTREND)
+        // string isTrend = "";
+        // if((dateFilter == true)  && 
+        //     ((entrySignal=="BUY" && isTrend=="UP_TREND") || 
+        //     (entrySignal=="SELL" && isTrend=="DOWN_TREND")))
+        // {
+
 //+------------------------------------------------------------------+
 //| ATR                                                              |
 //+------------------------------------------------------------------+

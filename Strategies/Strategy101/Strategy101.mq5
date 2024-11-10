@@ -92,7 +92,7 @@ int OnInit()
     Print("STRATEGY HAS BEEN INITIALIZED.");
 
     //KIỂM TRA INPUT
-    //--Kiểm tra phương thức khớp lệnh
+    //Kiểm tra phương thức khớp lệnh
     if(Trade.IsFillingTypeAllowed(SYMBOL_FILLING_FOK)) { 
         //ORDER_FILLING_FOK (Fill or Kill): Lệnh phải được khớp toàn bộ tại giá mong muốn. Nếu không thể khớp đủ khối lượng ngay lập tức, lệnh sẽ bị hủy.
         glFillingPolicy = ORDER_FILLING_FOK; Print("PHƯƠNG THỨC KHỚP LỆNH: ",Trade.GetFillingTypeName(glFillingPolicy)); 
@@ -111,7 +111,7 @@ int OnInit()
     Trade.SetFillingType(glFillingPolicy);
     glTimeBarOpen = D'1971.01.01 00.00';
     
-    //--Kiểm tra Account Hedging or Netting
+    //Kiểm tra Account Hedging or Netting
     if (Trade.IsHedging()) { Print("ACCOUNT ĐANG Ở CHẾ ĐỘ HEDGING."); }
     else { Print("ACCOUNT ĐANG Ở CHẾ ĐỘ NETTING.");  return(INIT_FAILED); }
     
@@ -119,7 +119,7 @@ int OnInit()
     int MAHandle = MA.Init(_Symbol,PERIOD_CURRENT,MAPeriod,MAShift,MAMethod,MAPrice);
     if(MAHandle == -1) { return(INIT_FAILED);}
 
-    //--DateTime
+    //DateTime
     Date.Init(Sunday,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday);
 
     return (INIT_SUCCEEDED);
@@ -135,84 +135,83 @@ void OnTick()
     //--------------------------------------//
     //  STAGE 1: KIỂM TRA ĐẦU VÀO TỔNG THỂ 
     //--------------------------------------//
+    string report = "";
+    // Kiểm tra điều kiện giao dịch theo ngày và giờ
+    if (!Date.IsTradingDay(report)) {Comment(report); return;}
+         // // Dừng EA nếu là thứ Bảy hoặc Chủ nhật
 
-    //--Check for new bar
+    // Các logic giao dịch khác sẽ nằm ở đây...
+
+    //Check for new bar & Date Filter
     bool newBar = false;
+    bool dateFilter = Date.DayOfWeekFilter();
+
     if(glTimeBarOpen != iTime(Symbol(),PERIOD_CURRENT,0)) 
     { 
         newBar = true; 
         glTimeBarOpen = iTime(Symbol(),PERIOD_CURRENT,0); 
     }
-    if(newBar == true)
+    if(newBar && dateFilter)
     {
-        //--Price
+        //Khởi tạo Price & Indicators (Lấy giá trị để thiết lập điều kiện)
         Bar.Refresh(_Symbol,PERIOD_CURRENT,3);
         double close1 = Bar.Close(1); // Lấy nến đóng cửa đầu tiên - 0 là nến đang giao dịch
         double close2 = Bar.Close(2);
-        //--Normalization of close price to tick size
-        double tickSize = SymbolInfoDouble(_Symbol,SYMBOL_TRADE_TICK_SIZE);
+        //Normalization of close price to tick size
+        double tickSize = SymbolInfoDouble(_Symbol,SYMBOL_TRADE_TICK_SIZE); 
         close1 = round(close1/tickSize) * tickSize;
         close2 = round(close2/tickSize) * tickSize;
-
         //--Moving Average
         MA.RefreshMain();
         double ma1 = MA.main[1];
         double ma2 = MA.main[2];
         //--ATR
 
-        //--------------------------------------------//
-        // STAGE 3: TÍN HIỆU KÍCH HOẠT (ENTRY SIGNALS)
-        //--------------------------------------------//
-        //--Tín hiệu kích hoạt chính
+        //--------------------------------------------------//
+        // STAGE 2: KIỂM TRA ĐIỀU KIỆN & TÍN HIỆU KÍCH HOẠT
+        //--------------------------------------------------//
+
+        //Tín hiệu kích hoạt chính
         string entrySignal = MA_EntrySignal(close1,close2,ma1,ma2);
-        Comment("XIN CHAO EA! "," | Magic Numer: ",MagicNumber);
-        
-        //--Lọc các ngày giao dịch trong tuần
-        bool dateFilter = Date.DayOfWeekFilter();
-
-
-        //--Kiểm tra điều kiện kích hoạt vị thế & mở vị thế
-        //--Phần kiểm tra isTrend sử dụng class để tính toán và trả về entrySignal và isTrend
-        //--Kiểm tra Trend hiện tại BUY(UPTREND) & SELL(DOWNTREND)
-        // string isTrend = "";
-        // if((dateFilter == true)  && 
-        //     ((entrySignal=="BUY" && isTrend=="UP_TREND") || 
-        //     (entrySignal=="SELL" && isTrend=="DOWN_TREND")))
-        // {
-        if((!Trade.CheckPlacedPosition(MagicNumber) || Trade.CheckPositionProfitOrStopReached(MagicNumber)) && dateFilter && (entrySignal == "BUY" || entrySignal == "SELL"))
+        Comment("HELLO WORLD! "," | Magic Numer: ",MagicNumber, "\n");
+        //--Kiểm tra điều kiện kích hoạt vị thế 
+        if((!Trade.CheckPlacedPosition(MagicNumber) || Trade.CheckPositionProfitOrStopReached(MagicNumber)) && (entrySignal == "BUY" || entrySignal == "SELL"))
         {   
             //----------------------------------------//
-            //   STAGE 4: MỞ VỊ THẾ (TRADE PLACEMENT)
+            //   STAGE 3: MỞ VỊ THẾ (TRADE PLACEMENT)
             //----------------------------------------//
+            
             ulong ticket = 0;
-
             //SL & TP Calculation
             double stopLoss = PM.CalculatorStopLoss(_Symbol,entrySignal,SLFixedPoints);
 
             if(entrySignal == "BUY")
             {
-                //Calculate volume
+                //Tính toán Volume & Mở vị thế
                 double volume = RM.MoneyManagement(_Symbol,MoneyManagement,MinLotPerEquityStep,RiskPercent,MathAbs(stopLoss-close1),FixedVolume,ORDER_TYPE_BUY);
                 
                 if(volume > 0) ticket = Trade.Buy(_Symbol,volume);
             }
             else if(entrySignal == "SELL")
             {
-                //Calculate volume
+                //Tính toán Volume & Mở vị thế
                 double volume = RM.MoneyManagement(_Symbol,MoneyManagement,MinLotPerEquityStep,RiskPercent,MathAbs(stopLoss-close1),FixedVolume,ORDER_TYPE_SELL);
                 
                 if(volume > 0) ticket = Trade.Sell(_Symbol,volume);
             }
             //SL & TP Trade Modification
-            Trade.ModifyPosition(_Symbol,ticket,stopLoss);
+            if(ticket > 0) { Trade.ModifyPosition(_Symbol,ticket,stopLoss); }
         }
         //----------------------------------------------//
-        // STAGE 5: QUẢN LÝ VỊ THẾ (POSITION MANAGEMENT)
+        // STAGE 4: QUẢN LÝ VỊ THẾ (POSITION MANAGEMENT)
         //----------------------------------------------//
+        
+        //Sử dụng TrailingStopLoss để làm TP
 
         //--------------------------------------------//
-        // STAGE 2: ĐÓNG VỊ THẾ (SIGNALS & TRADE EXIT)
+        // STAGE 5: ĐÓNG VỊ THẾ (SIGNALS & TRADE EXIT)
         //--------------------------------------------//
+
         //Tín hiệu thoát & Đóng giao dịch thực hiện
         string exitSignal = MA_ExitSignal(close1,close2,ma1,ma2);
         if(exitSignal == "EXIT_BUY" || exitSignal == "EXIT_SELL")
@@ -220,6 +219,5 @@ void OnTick()
                 Trade.CloseTrades(_Symbol,exitSignal);
             }
         Sleep(1000);
-        
     }
 }
